@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
-from typing import List
+from typing import List, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import math
@@ -11,9 +11,9 @@ DEBUG = False
 STEP = 40
 SAVE_BUTTON_EXISTS = False
 SAVED = False
-delimeter: float = 0.001
+delimeter:float = 0.001
 SAVED_TEXT_SHOWN = False
-
+default_path = "\\\\SHIELD-35\\second\\"
 
 class Point:
 
@@ -40,7 +40,7 @@ class Point:
 
 class Vector:
 
-    def __init__(self, start: Point, end: Point, master: str = "None"):
+    def __init__(self, start: Point, end: Point,master:str="None"):
         self.start = start
         self.end = end
         self.x_dir = 1
@@ -50,7 +50,7 @@ class Vector:
             self.x_dir = -1
         if end.y < start.y:
             self.y_dir = -1
-        self.angle, self.k = get_angle(start, end)
+        self.angle,self.k = get_angle(start,end)
         self.normal = Point()
         if self.master == "rectangle":
             if end.x == start.x and end.y < start.y:
@@ -68,7 +68,8 @@ class Vector:
         else:
             k_normal = - 1 / self.k
             x_solutions = [sign * math.sqrt(1 / (k_normal * k_normal + 1)) for sign in (-1, 1)]
-            y_solutions = [sign * (k_normal * math.sqrt(1 / (k_normal * k_normal + 1))) for sign in (-1, 1)]
+            y_solutions = [sign * (k_normal * math.sqrt(1 / (k_normal*k_normal + 1) )) for sign in (-1,1)]
+
 
     def __str__(self):
         result = ""
@@ -76,10 +77,9 @@ class Vector:
         result += "End = (" + str(self.end.x) + ";" + str(self.end.y) + ")"
         return result
 
+def similar_vector(input_vector:Vector) -> Vector:
 
-def similar_vector(input_vector: Vector) -> Vector:
     pass
-
 
 class LabelEntry:
     def __init__(self, root_window: tk.Tk, label_object: tk.Label, entry: tk.Entry, name: str):
@@ -121,14 +121,14 @@ def calc_coord(offset, diam, vector: Vector):
     start = vector.start
     end = vector.end
     if not start.modified:
-        x_shift = (vector.normal.x * (diam / 2)) + (vector.normal.y * (diam / 2)) + offset
+        x_shift =  (vector.normal.x * (diam / 2)) + (vector.normal.y * (diam / 2)) + offset
         y_shift = -(vector.normal.x * (diam / 2)) + (vector.normal.y * (diam / 2)) + offset
-        start.move(x_shift, y_shift)
+        start.move(x_shift,y_shift)
         start.modified = True
     if not end.modified:
         x_shift = (vector.normal.x * (diam / 2)) - (vector.normal.y * (diam / 2)) + offset
         y_shift = (vector.normal.x * (diam / 2)) + (vector.normal.y * (diam / 2)) + offset
-        end.move(x_shift, y_shift)
+        end.move(x_shift,y_shift)
         end.modified = True
 
 
@@ -159,7 +159,7 @@ def calculate(text_field: TextField, root_window: tk.Tk):
     x = float(labels["length"].entry.get())
     y = float(labels["width"].entry.get())
     points = [Point(0, y), Point(0, 0), Point(x, 0), Point(x, y), Point(0, y)]
-    vectors = [Vector(points[i], points[i + 1], master="rectangle") for i in range(len(points) - 1)]
+    vectors = [Vector(points[i], points[i + 1],master="rectangle") for i in range(len(points) - 1)]
 
     for vector in vectors:
         calc_coord(float(labels["zero_p"].entry.get()), float(labels["freza"].entry.get()), vector)
@@ -171,7 +171,7 @@ def calculate(text_field: TextField, root_window: tk.Tk):
                       + "," + output_convertation(vector.end.y) + ","
                       + output_convertation(labels["thickness"].entry.get()) + ";")
         if DEBUG:
-            print(vector.angle, end="\n")
+            print(vector.angle,end="\n")
     result.append("SF64;")
     result.append("PU" + first_coord + "," + safe_height)
     result.append("SF64;")
@@ -179,6 +179,7 @@ def calculate(text_field: TextField, root_window: tk.Tk):
     result.append(end)
     text_field.txt.delete(1.0, tk.END)
     text_field.txt.insert(1.0, "".join(result))
+
     if not SAVE_BUTTON_EXISTS:
         new_button = tk.Button(root_window, width=30, text="Save", command=lambda: save_button(text_field))
         new_button.pack()
@@ -191,7 +192,7 @@ def show_plot(points: List[Point]):
     plt.figure(figsize=(9, 9))
     plt.plot([points[i].x for i in range(len(points))] + [points[0].x]
              , [points[i].y for i in range(len(points))] + [points[0].y]
-             , color='black', linewidth=1.5
+             , color='black', linewidth=float(labels["freza"].entry.get())
              ,
              )
     plt.ylabel('Ycoord')
@@ -201,8 +202,7 @@ def show_plot(points: List[Point]):
     plt.xticks(np.arange((int(points[0].x - 50) // 50 - 1) * 50, (int(points[2].x + 50) // 50 + 3) * 50, 100))
     plt.yticks(np.arange((int(points[1].y - 50) // 50 - 1) * 50, (int(points[0].y + 50) // 50 + 3) * 50, 100))
     for point in points:
-        plt.annotate(xy=(point.x + 5, point.y + 5),
-                     s="(" + "{:.4f}".format(point.x) + ";" + "{:.4f}".format(point.y) + ")")
+        plt.annotate(xy=(point.x+5,point.y+5),s= "(" + "{:.4f}".format(point.x)  + ";" + "{:.4f}".format(point.y) + ")")
 
     plt.show()
 
@@ -211,16 +211,17 @@ def save_button(text_field: TextField):
     global SAVED, SAVED_TEXT_SHOWN
     saved_text.pack_forget()
     filename = labels["length"].entry.get() + "x" + labels["width"].entry.get() \
-               + "d" + labels["freza"].entry.get() + "(" + labels["zero_p"].entry.get() \
+               + "d" + labels["freza"].entry.get() +"(" +  labels["zero_p"].entry.get() \
                + ";" + labels["zero_p"].entry.get() + ").plt"
     result = text_field.txt.get(1.0, tk.END)
-    default_file = labels["path"].entry.get() + "\\" + filename
+    default_file = labels["path"].entry.get()  + filename
     file = open(default_file, "w")
     file.write(result)
     file.close()
     save_path.set("Saved to " + default_file)
     saved_text.pack()
     SAVED = True
+
 
 
 def get_angle(start: Point, end: Point) -> List[float]:
@@ -235,13 +236,13 @@ def get_angle(start: Point, end: Point) -> List[float]:
             angle = 90
         else:
             angle = -90
-        return [angle, math.atan(angle)]
+        return [angle,math.atan(angle)]
     elif (abs(start_y - end_y) < delimeter):
         if (start_x > end_x):
             angle = 180
         else:
             angle = 0
-        return [angle, math.atan(angle)]
+        return [angle,math.atan(angle)]
     else:
         k = (start_y - end_y) / (start_x - end_x)
         angle = math.atan(k) * 180 / math.pi
@@ -259,18 +260,18 @@ def get_angle(start: Point, end: Point) -> List[float]:
         angle = math.atan(k) * 180 / math.pi
         if (current_quarter % 2 == 0):
             angle += 90 * (current_quarter / abs(current_quarter))
-    return [angle, k]
+    return [angle,k]
 
-
-def path_taker_button(path_label_entry: LabelEntry):
-    path_label_entry.entry.delete(0, tk.END)
-    filepath = filedialog.askdirectory().replace("/", "\\")
-    path_label_entry.entry.insert(0, filepath)
-
+def path_taker_button(path_label_entry:LabelEntry):
+    path_label_entry.entry.delete(0,tk.END)
+    filepath = filedialog.askdirectory(initialdir=default_path).replace("/","\\")
+    if not filepath:
+        path_label_entry.entry.insert(0,default_path)
+    path_label_entry.entry.insert(0,filepath)
 
 if __name__ == '__main__':
     root = tk.Tk()
-    default_path = "\\\\SHIELD-35\\second\\"
+
     save_path = tk.StringVar(value="")
     saved_text = tk.Label(root, textvariable=save_path)
     thickness = LabelEntry.from_labels_text(root, "Толщина материала(мм)", "6", "thickness")
@@ -288,7 +289,7 @@ if __name__ == '__main__':
     text.config(width=500, height=500)
     path = LabelEntry.from_labels_text(root, "Папка сохранения", default_path, "path")
     path.pack()
-    path_button = tk.Button(root, width=30, text="Browse", command=lambda: path_taker_button(path))
+    path_button = tk.Button(root,width=30,text="Browse",command= lambda: path_taker_button(path) )
     path_button.pack()
     button1 = tk.Button(root, width=30, command=lambda: calculate(text, root), text="show calculated")
     button1.pack()
