@@ -271,7 +271,8 @@ def path_taker_button(path_label_entry:LabelEntry):
 
 if __name__ == '__main__':
     root = tk.Tk()
-
+    root.iconbitmap("rectangle.ico")
+    root.title("Rectangle")
     save_path = tk.StringVar(value="")
     saved_text = tk.Label(root, textvariable=save_path)
     thickness = LabelEntry.from_labels_text(root, "Толщина материала(мм)", "6", "thickness")
@@ -294,3 +295,4 @@ if __name__ == '__main__':
     button1 = tk.Button(root, width=30, command=lambda: calculate(text, root), text="show calculated")
     button1.pack()
     root.mainloop()
+
