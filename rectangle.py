@@ -1,81 +1,20 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
-from typing import List, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
-import math
+from geometry import *
 
 labels = {}
 DEBUG = False
 STEP = 40
 SAVE_BUTTON_EXISTS = False
 SAVED = False
-delimeter:float = 0.001
+
 SAVED_TEXT_SHOWN = False
 default_path = "\\\\SHIELD-35\\second\\"
 
-class Point:
 
-    def __init__(self, x: float = 0, y: float = 0):
-        self.x = x
-        self.y = y
-        self.modified = False
-
-    def __float__(self, mode):
-        if mode == 'X':
-            return self.x
-        else:
-            return self.y
-
-    def move(self, x_shift, y_shift):
-        self.x += x_shift
-        self.y += y_shift
-        pass
-
-    def __str__(self):
-        result = "Point = (" + str(self.x) + ";" + str(self.y) + ")"
-        return result
-
-
-class Vector:
-
-    def __init__(self, start: Point, end: Point,master:str="None"):
-        self.start = start
-        self.end = end
-        self.x_dir = 1
-        self.y_dir = 1
-        self.master = master
-        if end.x < start.x:
-            self.x_dir = -1
-        if end.y < start.y:
-            self.y_dir = -1
-        self.angle,self.k = get_angle(start,end)
-        self.normal = Point()
-        if self.master == "rectangle":
-            if end.x == start.x and end.y < start.y:
-                self.normal.x = -1
-                self.normal.y = 0
-            elif end.x == start.x and end.y > start.y:
-                self.normal.x = 1
-                self.normal.y = 0
-            elif end.x < start.x and end.y == start.y:
-                self.normal.x = 0
-                self.normal.y = 1
-            elif end.x > start.x and end.y == start.y:
-                self.normal.x = 0
-                self.normal.y = -1
-        else:
-            k_normal = - 1 / self.k
-            x_solutions = [sign * math.sqrt(1 / (k_normal * k_normal + 1)) for sign in (-1, 1)]
-            y_solutions = [sign * (k_normal * math.sqrt(1 / (k_normal*k_normal + 1) )) for sign in (-1,1)]
-
-
-    def __str__(self):
-        result = ""
-        result += "Start = (" + str(self.start.x) + ";" + str(self.start.y) + ")"
-        result += "End = (" + str(self.end.x) + ";" + str(self.end.y) + ")"
-        return result
 
 def similar_vector(input_vector:Vector) -> Vector:
 
@@ -91,8 +30,8 @@ class LabelEntry:
         labels.update({self.name: self})
 
     @classmethod
-    def from_labels_text(cls, root_window, label_text: str, entry_default_text: str, name):
-        entry = tk.Entry(root_window, width=20)
+    def from_labels_text(cls, root_window, label_text: str, entry_default_text: str, name, width=20):
+        entry = tk.Entry(root_window, width=width)
         entry.insert(0, entry_default_text)
         return cls(root_window, tk.Label(root_window, width=30, text=label_text), entry, name)
 
@@ -103,6 +42,9 @@ class LabelEntry:
         self.label.pack()
         self.entry.pack()
 
+    def pack_forget(self):
+        self.label.pack_forget()
+        self.entry.pack_forget()
 
 class TextField(ttk.Frame):
     def __init__(self, *args, **kwargs):
@@ -115,7 +57,6 @@ class TextField(ttk.Frame):
         scrollb = ttk.Scrollbar(self, command=self.txt.yview)
         scrollb.grid(row=0, column=1, sticky='nsew')
         self.txt['yscrollcommand'] = scrollb.set
-
 
 def calc_coord(offset, diam, vector: Vector):
     start = vector.start
@@ -131,62 +72,9 @@ def calc_coord(offset, diam, vector: Vector):
         end.move(x_shift,y_shift)
         end.modified = True
 
-
 def output_convertation(data, sign=1, step=STEP) -> str:
     result = (int(float(data) * step) * sign)
     return str(result)
-
-
-def calculate(text_field: TextField, root_window: tk.Tk):
-    global labels, SAVED, SAVE_BUTTON_EXISTS
-    saved_text.pack_forget()
-    SAVED = False
-    result = []
-    start = "IN;PA;ZZ1;SP1;SF64;"
-    end = "SP0;"
-    first_coord = output_convertation(0 - float(labels["freza"].entry.get()) / 2
-                                      + float(labels["zero_p"].entry.get())) \
-                  + "," + output_convertation(float(labels["width"].entry.get())
-                                              + float(labels["freza"].entry.get()) / 2
-                                              + float(labels["zero_p"].entry.get())
-                                              )
-    safe_height = output_convertation(labels["safety_height"].entry.get(), sign=-1) + ";"
-    material_thickness = output_convertation(labels["thickness"].entry.get()) + ";"
-    result.append(start + "PU" + first_coord + "," + safe_height)
-    result.append("SF" + output_convertation(labels["z_feed"].entry.get(), step=1) + ";")
-    result.append("PD" + first_coord + "," + material_thickness)
-    result.append("SF" + output_convertation(labels["x_feed"].entry.get(), step=1) + ";")
-    x = float(labels["length"].entry.get())
-    y = float(labels["width"].entry.get())
-    points = [Point(0, y), Point(0, 0), Point(x, 0), Point(x, y), Point(0, y)]
-    vectors = [Vector(points[i], points[i + 1],master="rectangle") for i in range(len(points) - 1)]
-
-    for vector in vectors:
-        calc_coord(float(labels["zero_p"].entry.get()), float(labels["freza"].entry.get()), vector)
-        if DEBUG:
-            print(vector)
-
-    for vector in vectors:
-        result.append("PD" + output_convertation(vector.end.x)
-                      + "," + output_convertation(vector.end.y) + ","
-                      + output_convertation(labels["thickness"].entry.get()) + ";")
-        if DEBUG:
-            print(vector.angle,end="\n")
-    result.append("SF64;")
-    result.append("PU" + first_coord + "," + safe_height)
-    result.append("SF64;")
-    result.append("PU" + "0,0," + safe_height)
-    result.append(end)
-    text_field.txt.delete(1.0, tk.END)
-    text_field.txt.insert(1.0, "".join(result))
-
-    if not SAVE_BUTTON_EXISTS:
-        new_button = tk.Button(root_window, width=30, text="Save", command=lambda: save_button(text_field))
-        new_button.pack()
-        plotter_button = tk.Button(root_window, width=30, command=lambda: show_plot(points), text="Show plot")
-        plotter_button.pack()
-        SAVE_BUTTON_EXISTS = True
-
 
 def show_plot(points: List[Point]):
     plt.figure(figsize=(9, 9))
@@ -206,93 +94,202 @@ def show_plot(points: List[Point]):
 
     plt.show()
 
+class RectangleWindow:
 
-def save_button(text_field: TextField):
-    global SAVED, SAVED_TEXT_SHOWN
-    saved_text.pack_forget()
-    filename = labels["length"].entry.get() + "x" + labels["width"].entry.get() \
-               + "d" + labels["freza"].entry.get() +"(" +  labels["zero_p"].entry.get() \
-               + ";" + labels["zero_p"].entry.get() + ").plt"
-    result = text_field.txt.get(1.0, tk.END)
-    default_file = labels["path"].entry.get()  + filename
-    file = open(default_file, "w")
-    file.write(result)
-    file.close()
-    save_path.set("Saved to " + default_file)
-    saved_text.pack()
-    SAVED = True
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.iconbitmap("rectangle.ico")
+        self.root.title("Rectangle")
+        self.save_path = tk.StringVar(value="")
+        self.saved_text = tk.Label(self.root, textvariable=self.save_path)
+        self.thickness = LabelEntry.from_labels_text(self.root, "Толщина материала(мм)", "6", "thickness")
+        self.length = LabelEntry.from_labels_text(self.root, "Длина(ось Х), мм", "1050", "length")
+        self.width = LabelEntry.from_labels_text(self.root, "Ширина(ось Y), мм", "730", "width")
+        self.freza = LabelEntry.from_labels_text(self.root, "Диаметр инструмента, мм", "3.175", "freza")
+        self.x_feed = LabelEntry.from_labels_text(self.root, "Подача линейная, мм/сек", "60", "x_feed")
+        self.z_feed = LabelEntry.from_labels_text(self.root, "Подача врезания, мм/сек", "30", "z_feed")
+        self.zero_p = LabelEntry.from_labels_text(self.root, "Отступ от нуля(х и у), мм", "2", "zero_p")
+        self.safety_height = LabelEntry.from_labels_text(self.root, "Высота безопасности, мм", "40", "safety_height")
+        for label in labels.values():
+            label.pack()
+        self.text = TextField(self.root)
+        self.text.pack(fill="both", expand=True)
+        self.text.config(width=500, height=500)
+        self.path = LabelEntry.from_labels_text(self.root, "Папка сохранения", default_path, "path", width=100)
+        self.path.pack()
+        self.path_button = tk.Button(self.root, width=30, text="Browse", command=lambda: self.path_taker_button())
+        self.path_button.pack()
+        self.button1 = tk.Button(self.root, width=30, command=lambda: self.calculate(self.text, self.root), text="show calculated")
+        self.button1.pack()
+
+    def calculate(self,text_field: TextField, root_window: tk.Tk):
+        global labels, SAVED, SAVE_BUTTON_EXISTS
+        self.saved_text.pack_forget()
+        SAVED = False
+        result = []
+        start = "IN;PA;ZZ1;SP1;SF64;"
+        end = "SP0;"
+        first_coord = output_convertation(0 - float(labels["freza"].entry.get()) / 2
+                                          + float(labels["zero_p"].entry.get())) \
+                      + "," + output_convertation(float(labels["width"].entry.get())
+                                                  + float(labels["freza"].entry.get()) / 2
+                                                  + float(labels["zero_p"].entry.get())
+                                                  )
+        safe_height = output_convertation(labels["safety_height"].entry.get(), sign=-1) + ";"
+        material_thickness = output_convertation(labels["thickness"].entry.get()) + ";"
+        result.append(start + "PU" + first_coord + "," + safe_height)
+        result.append("SF" + output_convertation(labels["z_feed"].entry.get(), step=1) + ";")
+        result.append("PD" + first_coord + "," + material_thickness)
+        result.append("SF" + output_convertation(labels["x_feed"].entry.get(), step=1) + ";")
+        x = float(labels["length"].entry.get())
+        y = float(labels["width"].entry.get())
+        points = [Point(0, y), Point(0, 0), Point(x, 0), Point(x, y), Point(0, y)]
+        vectors = [Vector(points[i], points[i + 1], master="rectangle") for i in range(len(points) - 1)]
+
+        for vector in vectors:
+            calc_coord(float(labels["zero_p"].entry.get()), float(labels["freza"].entry.get()), vector)
+            if DEBUG:
+                print(vector)
+
+        for vector in vectors:
+            result.append("PD" + output_convertation(vector.end.x)
+                          + "," + output_convertation(vector.end.y) + ","
+                          + output_convertation(labels["thickness"].entry.get()) + ";")
+            if DEBUG:
+                print(vector.angle, end="\n")
+        result.append("SF64;")
+        result.append("PU" + first_coord + "," + safe_height)
+        result.append("SF64;")
+        result.append("PU" + "0,0," + safe_height)
+        result.append(end)
+        text_field.txt.delete(1.0, tk.END)
+        text_field.txt.insert(1.0, "".join(result))
+
+        if not SAVE_BUTTON_EXISTS:
+            new_button = tk.Button(root_window, width=30, text="Save", command=lambda: self.save_button())
+            new_button.pack()
+            plotter_button = tk.Button(root_window, width=30, command=lambda: show_plot(points), text="Show plot")
+            plotter_button.pack()
+            SAVE_BUTTON_EXISTS = True
+
+    def path_taker_button(self):
+        path_label_entry = self.path
+        path_label_entry.entry.delete(0, tk.END)
+        filepath = filedialog.askdirectory(initialdir=default_path).replace("/", "\\")
+        if not filepath:
+            path_label_entry.entry.insert(0, default_path)
+        path_label_entry.entry.insert(0, filepath)
+
+    def save_button(self):
+        global SAVED, SAVED_TEXT_SHOWN
+        self.saved_text.pack_forget()
+        filename = labels["length"].entry.get() + "x" + labels["width"].entry.get() \
+                   + "d" + labels["freza"].entry.get() + "(" + labels["zero_p"].entry.get() \
+                   + ";" + labels["zero_p"].entry.get() + ").plt"
+        result = self.text.txt.get(1.0, tk.END)
+        default_file = labels["path"].entry.get() + filename
+        file = open(default_file, "w")
+        file.write(result)
+        file.close()
+        self.save_path.set("Saved to " + default_file)
+        self.saved_text.pack()
+        SAVED = True
+
+    def mainloop(self):
+        print("Parent mainloop!\n")
+        self.root.mainloop()
+
+class LineWindow(RectangleWindow):
+
+    def __init__(self):
+        super(LineWindow, self).__init__()
+        self.root.iconbitmap("line.ico")
+        self.root.title("Line")
+        labels["width"].pack_forget()
+
+    def calculate(self, text_field: TextField, root_window: tk.Tk):
+        global labels, SAVED, SAVE_BUTTON_EXISTS
+        self.saved_text.pack_forget()
+        SAVED = False
+        result = []
+        start = "IN;PA;ZZ1;SP1;SF64;"
+        end = "SP0;"
+        first_coord = output_convertation(0 - float(labels["freza"].entry.get()) / 2
+                                          + float(labels["zero_p"].entry.get())) \
+                      + "," + output_convertation(float(labels["width"].entry.get())
+                                                  + float(labels["freza"].entry.get()) / 2
+                                                  + float(labels["zero_p"].entry.get())
+                                                  )
+        safe_height = output_convertation(labels["safety_height"].entry.get(), sign=-1) + ";"
+        material_thickness = output_convertation(labels["thickness"].entry.get()) + ";"
+        result.append(start + "PU" + first_coord + "," + safe_height)
+        result.append("SF" + output_convertation(labels["z_feed"].entry.get(), step=1) + ";")
+        result.append("PD" + first_coord + "," + material_thickness)
+        result.append("SF" + output_convertation(labels["x_feed"].entry.get(), step=1) + ";")
+        x = float(labels["length"].entry.get())
+        y = float(labels["width"].entry.get())
+        points = [Point(0, 0), Point(0, x)]
+        vectors = [Vector(points[i], points[i + 1], master="line") for i in range(len(points) - 1)]
+
+        for vector in vectors:
+            calc_coord(float(labels["zero_p"].entry.get()), float(labels["freza"].entry.get()), vector)
+            if DEBUG:
+                print(vector)
+
+        for vector in vectors:
+            result.append("PD" + output_convertation(vector.end.x)
+                          + "," + output_convertation(vector.end.y) + ","
+                          + output_convertation(labels["thickness"].entry.get()) + ";")
+            if DEBUG:
+                print(vector.angle, end="\n")
+        result.append("SF64;")
+        result.append("PU" + first_coord + "," + safe_height)
+        result.append("SF64;")
+        result.append("PU" + "0,0," + safe_height)
+        result.append(end)
+        text_field.txt.delete(1.0, tk.END)
+        text_field.txt.insert(1.0, "".join(result))
+
+        if not SAVE_BUTTON_EXISTS:
+            new_button = tk.Button(root_window, width=30, text="Save", command=lambda: self.save_button())
+            new_button.pack()
+            plotter_button = tk.Button(root_window, width=30, command=lambda: show_plot(points), text="Show plot")
+            plotter_button.pack()
+            SAVE_BUTTON_EXISTS = True
+
+    def save_button(self):
+        global SAVED, SAVED_TEXT_SHOWN
+        self.saved_text.pack_forget()
+        filename = "Line" + labels["length"].entry.get() + "mm" \
+                   + "d" + labels["freza"].entry.get() + "(" + labels["zero_p"].entry.get() \
+                   + ";" + labels["zero_p"].entry.get() + ").plt"
+        result = self.text.txt.get(1.0, tk.END)
+        default_file = labels["path"].entry.get() + filename
+        file = open(default_file, "w")
+        file.write(result)
+        file.close()
+        self.save_path.set("Saved to " + default_file)
+        self.saved_text.pack()
+        SAVED = True
+
+class ChoiceWindow:
+
+    def __init__(self):
+        self.root = tk.Tk()
+        self.label = tk.Label(text="Choose mode")
+        tk.Button(text="Rectangle",command=self.rect_button_action).pack()
+        tk.Button(text="Line",command=self.line_button_action).pack()
+        self.root.mainloop()
+
+    def rect_button_action(self):
+        self.root.destroy()
+        RectangleWindow().mainloop()
 
 
+    def line_button_action(self):
+        self.root.destroy()
+        LineWindow().mainloop()
 
-def get_angle(start: Point, end: Point) -> List[float]:
-    start_x = start.x
-    start_y = start.y
-    end_x = end.x
-    end_y = end.y
-    angle, k = float(), float()
-    current_quarter = 0
-    if (abs(start_x - end_x) < delimeter):
-        if (start_y < end_y):
-            angle = 90
-        else:
-            angle = -90
-        return [angle,math.atan(angle)]
-    elif (abs(start_y - end_y) < delimeter):
-        if (start_x > end_x):
-            angle = 180
-        else:
-            angle = 0
-        return [angle,math.atan(angle)]
-    else:
-        k = (start_y - end_y) / (start_x - end_x)
-        angle = math.atan(k) * 180 / math.pi
-        quarters = dict()
-        quarters.update({1: end_x > start_x and end_y > start_y})
-        quarters.update({-1: end_x > start_x and end_y < start_y})
-        quarters.update({-2: end_x < start_x and end_y < start_y})
-        quarters.update({2: end_x < start_x and end_y > start_y})
 
-        for key in quarters.keys():
-            if (quarters[key]):
-                current_quarter = key
-                break
-
-        angle = math.atan(k) * 180 / math.pi
-        if (current_quarter % 2 == 0):
-            angle += 90 * (current_quarter / abs(current_quarter))
-    return [angle,k]
-
-def path_taker_button(path_label_entry:LabelEntry):
-    path_label_entry.entry.delete(0,tk.END)
-    filepath = filedialog.askdirectory(initialdir=default_path).replace("/","\\")
-    if not filepath:
-        path_label_entry.entry.insert(0,default_path)
-    path_label_entry.entry.insert(0,filepath)
-
-if __name__ == '__main__':
-    root = tk.Tk()
-    root.iconbitmap("rectangle.ico")
-    root.title("Rectangle")
-    save_path = tk.StringVar(value="")
-    saved_text = tk.Label(root, textvariable=save_path)
-    thickness = LabelEntry.from_labels_text(root, "Толщина материала(мм)", "6", "thickness")
-    length = LabelEntry.from_labels_text(root, "Длина(ось Х), мм", "1050", "length")
-    width = LabelEntry.from_labels_text(root, "Ширина(ось Y), мм", "730", "width")
-    freza = LabelEntry.from_labels_text(root, "Диаметр инструмента, мм", "3.175", "freza")
-    x_feed = LabelEntry.from_labels_text(root, "Подача линейная, мм/сек", "60", "x_feed")
-    z_feed = LabelEntry.from_labels_text(root, "Подача врезания, мм/сек", "30", "z_feed")
-    zero_p = LabelEntry.from_labels_text(root, "Отступ от нуля(х и у), мм", "2", "zero_p")
-    safety_height = LabelEntry.from_labels_text(root, "Высота безопасности, мм", "40", "safety_height")
-    for label in labels.values():
-        label.pack()
-    text = TextField(root)
-    text.pack(fill="both", expand=True)
-    text.config(width=500, height=500)
-    path = LabelEntry.from_labels_text(root, "Папка сохранения", default_path, "path")
-    path.pack()
-    path_button = tk.Button(root,width=30,text="Browse",command= lambda: path_taker_button(path) )
-    path_button.pack()
-    button1 = tk.Button(root, width=30, command=lambda: calculate(text, root), text="show calculated")
-    button1.pack()
-    root.mainloop()
-
+if __name__ == "__main__":
+    ChoiceWindow()
