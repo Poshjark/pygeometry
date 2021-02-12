@@ -25,6 +25,25 @@ class Point:
         result = "Point = (" + str(self.x) + ";" + str(self.y) + ")"
         return result
 
+def get_straigth_angle(start:Point,end:Point,normal_point:Point):
+    if end.x == start.x and end.y < start.y:
+        x = -1
+        y = 0
+    elif end.x == start.x and end.y > start.y:
+        x = 1
+        y = 0
+    elif end.x < start.x and end.y == start.y:
+        x = 0
+        y = 1
+    elif end.x > start.x and end.y == start.y:
+        x = 0
+        y = -1
+    else:
+        x = 0
+        y = 0
+    normal_point.x = x
+    normal_point.y = y
+
 class Vector:
 
     def __init__(self, start: Point, end: Point,master:str="None"):
@@ -39,23 +58,8 @@ class Vector:
             self.y_dir = -1
         self.angle,self.k = get_angle(start,end)
         self.normal = Point()
-        if self.master == "rectangle":
-            if end.x == start.x and end.y < start.y:
-                self.normal.x = -1
-                self.normal.y = 0
-            elif end.x == start.x and end.y > start.y:
-                self.normal.x = 1
-                self.normal.y = 0
-            elif end.x < start.x and end.y == start.y:
-                self.normal.x = 0
-                self.normal.y = 1
-            elif end.x > start.x and end.y == start.y:
-                self.normal.x = 0
-                self.normal.y = -1
-        else:
-            k_normal = - 1 / self.k
-            x_solutions = [sign * math.sqrt(1 / (k_normal * k_normal + 1)) for sign in (-1, 1)]
-            y_solutions = [sign * (k_normal * math.sqrt(1 / (k_normal*k_normal + 1) )) for sign in (-1,1)]
+        get_straigth_angle(self.start,self.end,self.normal)
+
 
 
     def __str__(self):

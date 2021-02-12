@@ -15,11 +15,6 @@ SAVED_TEXT_SHOWN = False
 default_path = "\\\\SHIELD-35\\second\\"
 
 
-
-def similar_vector(input_vector:Vector) -> Vector:
-
-    pass
-
 class LabelEntry:
     def __init__(self, root_window: tk.Tk, label_object: tk.Label, entry: tk.Entry, name: str):
         self.root = root_window
@@ -33,7 +28,8 @@ class LabelEntry:
     def from_labels_text(cls, root_window, label_text: str, entry_default_text: str, name, width=20):
         entry = tk.Entry(root_window, width=width)
         entry.insert(0, entry_default_text)
-        return cls(root_window, tk.Label(root_window, width=30, text=label_text), entry, name)
+        label = tk.Label(root_window, width=30, text=label_text)
+        return cls(root_window, label, entry, name)
 
     def __str__(self):
         return
@@ -45,6 +41,7 @@ class LabelEntry:
     def pack_forget(self):
         self.label.pack_forget()
         self.entry.pack_forget()
+
 
 class TextField(ttk.Frame):
     def __init__(self, *args, **kwargs):
@@ -58,6 +55,7 @@ class TextField(ttk.Frame):
         scrollb.grid(row=0, column=1, sticky='nsew')
         self.txt['yscrollcommand'] = scrollb.set
 
+
 def calc_coord(offset, diam, vector: Vector):
     start = vector.start
     end = vector.end
@@ -69,7 +67,7 @@ def calc_coord(offset, diam, vector: Vector):
     if not end.modified:
         x_shift = (vector.normal.x * (diam / 2)) - (vector.normal.y * (diam / 2)) + offset
         y_shift = (vector.normal.x * (diam / 2)) + (vector.normal.y * (diam / 2)) + offset
-        end.move(x_shift,y_shift)
+        end.move(x_shift, y_shift)
         end.modified = True
 
 def output_convertation(data, sign=1, step=STEP) -> str:
@@ -94,11 +92,20 @@ def show_plot(points: List[Point]):
 
     plt.show()
 
+
 class RectangleWindow:
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.iconbitmap("rectangle.ico")
+        back_button = tk.Button(text="Back",command=self.back_button, anchor="w")
+        back_button.pack_configure(side=tk.TOP)
+        back_button.pack()
+        if type(self) is LineWindow:
+            self.axis = tk.StringVar()
+            self.axis.set("X")
+            tk.Radiobutton(self.root, variable=self.axis, value="X", text="Ось X", anchor=tk.E).pack()
+            tk.Radiobutton(self.root, variable=self.axis, value="Y", text="Ось Y", anchor=tk.N).pack()
+        self.root.iconbitmap("C:\\Users\\Frezer\\Desktop\\python_scripts\\rect_new\\rectangle.ico")
         self.root.title("Rectangle")
         self.save_path = tk.StringVar(value="")
         self.saved_text = tk.Label(self.root, textvariable=self.save_path)
@@ -121,6 +128,12 @@ class RectangleWindow:
         self.path_button.pack()
         self.button1 = tk.Button(self.root, width=30, command=lambda: self.calculate(self.text, self.root), text="show calculated")
         self.button1.pack()
+
+    def back_button(self):
+        self.root.destroy()
+        labels.clear()
+        ChoiceWindow()
+        return
 
     def calculate(self,text_field: TextField, root_window: tk.Tk):
         global labels, SAVED, SAVE_BUTTON_EXISTS
@@ -203,9 +216,17 @@ class LineWindow(RectangleWindow):
 
     def __init__(self):
         super(LineWindow, self).__init__()
-        self.root.iconbitmap("line.ico")
+        self.root.iconbitmap("C:\\Users\\Frezer\\Desktop\\python_scripts\\rect_new\\line.ico")
         self.root.title("Line")
-        labels["width"].pack_forget()
+        self.width.pack_forget()
+        self.zero_p.entry.delete(0,tk.END)
+        self.zero_p.entry.insert(0,"0")
+        self.length.entry.delete(0, tk.END)
+        self.length.entry.insert(0, "1000")
+        self.freza.entry.delete(0, tk.END)
+        self.freza.entry.insert(0, "4")
+        self.freza.entry.pack_configure()
+
 
     def calculate(self, text_field: TextField, root_window: tk.Tk):
         global labels, SAVED, SAVE_BUTTON_EXISTS
@@ -214,28 +235,20 @@ class LineWindow(RectangleWindow):
         result = []
         start = "IN;PA;ZZ1;SP1;SF64;"
         end = "SP0;"
-        first_coord = output_convertation(0 - float(labels["freza"].entry.get()) / 2
-                                          + float(labels["zero_p"].entry.get())) \
-                      + "," + output_convertation(float(labels["width"].entry.get())
-                                                  + float(labels["freza"].entry.get()) / 2
-                                                  + float(labels["zero_p"].entry.get())
-                                                  )
+        zero_p = float(labels["zero_p"].entry.get())
+        first_coord = output_convertation(float(labels["zero_p"].entry.get())) \
+                      + "," + output_convertation(float(labels["zero_p"].entry.get()))
         safe_height = output_convertation(labels["safety_height"].entry.get(), sign=-1) + ";"
         material_thickness = output_convertation(labels["thickness"].entry.get()) + ";"
         result.append(start + "PU" + first_coord + "," + safe_height)
         result.append("SF" + output_convertation(labels["z_feed"].entry.get(), step=1) + ";")
         result.append("PD" + first_coord + "," + material_thickness)
         result.append("SF" + output_convertation(labels["x_feed"].entry.get(), step=1) + ";")
-        x = float(labels["length"].entry.get())
-        y = float(labels["width"].entry.get())
-        points = [Point(0, 0), Point(0, x)]
+        length = float(self.length.entry.get())
+        start_point = Point(zero_p,zero_p)
+        end_point = Point(zero_p + length,zero_p) if self.axis.get() == "X" else Point(zero_p, zero_p + length)
+        points = [start_point,end_point]
         vectors = [Vector(points[i], points[i + 1], master="line") for i in range(len(points) - 1)]
-
-        for vector in vectors:
-            calc_coord(float(labels["zero_p"].entry.get()), float(labels["freza"].entry.get()), vector)
-            if DEBUG:
-                print(vector)
-
         for vector in vectors:
             result.append("PD" + output_convertation(vector.end.x)
                           + "," + output_convertation(vector.end.y) + ","
@@ -260,7 +273,7 @@ class LineWindow(RectangleWindow):
     def save_button(self):
         global SAVED, SAVED_TEXT_SHOWN
         self.saved_text.pack_forget()
-        filename = "Line" + labels["length"].entry.get() + "mm" \
+        filename = "Line" + self.axis.get() + labels["length"].entry.get() + "mm" \
                    + "d" + labels["freza"].entry.get() + "(" + labels["zero_p"].entry.get() \
                    + ";" + labels["zero_p"].entry.get() + ").plt"
         result = self.text.txt.get(1.0, tk.END)
@@ -276,7 +289,9 @@ class ChoiceWindow:
 
     def __init__(self):
         self.root = tk.Tk()
+        self.root.configure(width=500, height=500)
         self.label = tk.Label(text="Choose mode")
+        self.label.pack()
         tk.Button(text="Rectangle",command=self.rect_button_action).pack()
         tk.Button(text="Line",command=self.line_button_action).pack()
         self.root.mainloop()
