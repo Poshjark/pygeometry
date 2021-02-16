@@ -4,8 +4,9 @@ from tkinter import filedialog
 import matplotlib.pyplot as plt
 import numpy as np
 from geometry import *
+from typing import Dict
 
-labels = {}
+
 DEBUG = False
 STEP = 40
 SAVE_BUTTON_EXISTS = False
@@ -13,6 +14,8 @@ SAVED = False
 
 SAVED_TEXT_SHOWN = False
 default_path = "\\\\SHIELD-35\\second\\"
+
+
 
 def calc_offset_point(offset, diam, vector: Vector):
     start = vector.start
@@ -35,38 +38,43 @@ def output_convertation(data, sign=1, step=STEP) -> str:
 class LabelEntryBlock:
 
     def __init__(self):
-        self.labels = {}
+        self.labels :Dict[LabelEntry] = {}
         self.packed = False
 
     def add_label_entry(self,label_entry):
         self.labels.update({label_entry.name : label_entry})
-
-    def __getitem__(self, key):
-        return self.labels[key]
 
     def pack(self):
         if not self.packed:
             for label_entry in self.labels.values():
                 label_entry.pack()
 
+    def pack_forget(self):
+        for label_entry in self.labels.values():
+            label_entry.pack_forget()
+
+    def __getitem__(self, key):
+        return self.labels[key]
+
 class LabelEntry:
-    def __init__(self, master, label_object: tk.Label, entry: tk.Entry, name: str):
+    def __init__(self, master, label_object: tk.Label, entry: tk.Entry, name: str,label_container:LabelEntryBlock):
         self.master = master
         self.root = self.master.root
         self.label = label_object
         self.entry = entry
         self.name = name
-        master.labels.add_label_entry(self)
+        self.container = label_container
+        self.container.add_label_entry(self)
 
 
 
     @classmethod
-    def from_labels_text(cls, master, label_text: str, entry_default_text: str, name, width=20):
+    def from_labels_text(cls, master, label_text: str, entry_default_text: str, name, label_container:LabelEntryBlock, width=20):
         entry = tk.Entry(master.root, width=width)
         entry.insert(0, entry_default_text)
         label = tk.Label(master.root, width=30, text=label_text)
 
-        return cls(master, label, entry, name)
+        return cls(master, label, entry, name,label_container)
 
     def __str__(self):
         return
@@ -78,8 +86,6 @@ class LabelEntry:
     def pack_forget(self):
         self.label.pack_forget()
         self.entry.pack_forget()
-
-
 
 def change_label_text(label_entry:LabelEntry,text:str):
     label_entry.label.configure(text="Длина(ось " + text + "), мм")
@@ -101,9 +107,9 @@ class RectangleWindow:
 
     def __init__(self):
         self.root = tk.Tk()
-        back_button = tk.Button(text="Back",command=self.back_button, anchor="w")
-        back_button.pack_configure(side=tk.TOP)
-        back_button.pack()
+        self.back_button_object = tk.Button(text="Back",command=self.back_button, anchor="w")
+        self.back_button_object.pack_configure(side=tk.TOP)
+        self.back_button_object.pack()
         self.points = [Point()]
         if type(self) is LineWindow:
             self.axis = tk.StringVar()
@@ -117,19 +123,19 @@ class RectangleWindow:
         self.save_path = tk.StringVar(value="")
         self.saved_text = tk.Label(self.root, textvariable=self.save_path)
         self.labels = LabelEntryBlock()
-        self.thickness = LabelEntry.from_labels_text(self, "Толщина материала(мм)", "6", "thickness")
-        self.length = LabelEntry.from_labels_text(self, "Длина(ось Х), мм", "1050", "length")
-        self.width = LabelEntry.from_labels_text(self, "Ширина(ось Y), мм", "730", "width")
-        self.freza = LabelEntry.from_labels_text(self, "Диаметр инструмента, мм", "3.175", "freza")
-        self.x_feed = LabelEntry.from_labels_text(self, "Подача линейная, мм/сек", "60", "x_feed")
-        self.z_feed = LabelEntry.from_labels_text(self, "Подача врезания, мм/сек", "30", "z_feed")
-        self.zero_p = LabelEntry.from_labels_text(self, "Отступ от нуля(х и у), мм", "2", "zero_p")
-        self.safety_height = LabelEntry.from_labels_text(self, "Высота безопасности, мм", "40", "safety_height")
+        self.thickness = LabelEntry.from_labels_text(self, "Толщина материала(мм)", "6", "thickness",self.labels)
+        self.length = LabelEntry.from_labels_text(self, "Длина(ось Х), мм", "1050", "length",self.labels)
+        self.width = LabelEntry.from_labels_text(self, "Ширина(ось Y), мм", "730", "width",self.labels)
+        self.freza = LabelEntry.from_labels_text(self, "Диаметр инструмента, мм", "3.175", "freza",self.labels)
+        self.x_feed = LabelEntry.from_labels_text(self, "Подача линейная, мм/сек", "60", "x_feed",self.labels)
+        self.z_feed = LabelEntry.from_labels_text(self, "Подача врезания, мм/сек", "30", "z_feed",self.labels)
+        self.zero_p = LabelEntry.from_labels_text(self, "Отступ от нуля(х и у), мм", "2", "zero_p",self.labels)
+        self.safety_height = LabelEntry.from_labels_text(self, "Высота безопасности, мм", "40", "safety_height",self.labels)
         self.labels.pack()
         self.text = TextField(self.root)
         self.text.pack(fill="both", expand=True)
         self.text.config(width=500, height=500)
-        self.path = LabelEntry.from_labels_text(self, "Папка сохранения", default_path, "path", width=100)
+        self.path = LabelEntry.from_labels_text(self, "Папка сохранения", default_path, "path",self.labels, width=100)
         self.path.pack()
         self.path_button = tk.Button(self.root, width=30, text="Browse", command=self.path_taker_button)
         self.path_button.pack()
@@ -139,9 +145,8 @@ class RectangleWindow:
 
     def back_button(self):
         self.root.destroy()
-        labels.clear()
+        del self
         ChoiceWindow()
-        return
 
     def calculate(self):
         text_field = self.text
@@ -259,7 +264,7 @@ class LineWindow(RectangleWindow):
         self.freza.entry.pack_configure()
 
     def calculate(self):
-        global  SAVED, SAVE_BUTTON_EXISTS
+        global SAVED, SAVE_BUTTON_EXISTS
         labels = self.labels
         text_field = self.text
         root_window = self.root
@@ -305,6 +310,7 @@ class LineWindow(RectangleWindow):
 
     def save_button(self):
         global SAVED, SAVED_TEXT_SHOWN
+        labels = self.labels
         self.saved_text.pack_forget()
         filename = "Line" + self.axis.get() + labels["length"].entry.get() + "mm" \
                    + "d" + self.freza.entry.get() + "(" + self.zero_p.entry.get() \
@@ -322,6 +328,23 @@ class ManyLinesWindow(RectangleWindow):
 
     def __init__(self):
         super(ManyLinesWindow, self).__init__()
+        self.labels.pack_forget()
+        self.back_button_object.pack()
+        self.labels["length"].label.configure(text="Длина полосы")
+        self.labels["width"].label.configure(text="Ширина полосы")
+        self.number = LabelEntry.from_labels_text(self,"Сколько полосок?","2","number",self.labels)
+        widgets = []
+        for widget in self.root.slaves():
+            widget.pack_forget()
+            widgets.append(widget)
+        self.labels.pack()
+        self.text.pack()
+        self.labels["path"].pack_forget()
+        self.labels["path"].pack()
+        self.path_button.pack()
+        self.button1.pack()
+
+
 
 
 class ChoiceWindow:
@@ -333,6 +356,7 @@ class ChoiceWindow:
         self.label.pack()
         tk.Button(text="Rectangle",command=self.rect_button_action).pack()
         tk.Button(text="Line",command=self.line_button_action).pack()
+        tk.Button(text="Many Lines",command=self.many_lines_button_action).pack()
         self.root.mainloop()
 
     def rect_button_action(self):
@@ -343,3 +367,7 @@ class ChoiceWindow:
     def line_button_action(self):
         self.root.destroy()
         LineWindow().mainloop()
+
+    def many_lines_button_action(self):
+        self.root.destroy()
+        ManyLinesWindow().mainloop()
