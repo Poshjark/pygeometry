@@ -8,7 +8,7 @@ from typing import Dict
 
 
 DEBUG = False
-STEP = 40
+STEP = 1
 SAVE_BUTTON_EXISTS = False
 SAVED = False
 
@@ -67,7 +67,6 @@ class LabelEntry:
         self.container.add_label_entry(self)
 
 
-
     @classmethod
     def from_labels_text(cls, master, label_text: str, entry_default_text: str, name, label_container:LabelEntryBlock, width=20):
         entry = tk.Entry(master.root, width=width)
@@ -86,6 +85,9 @@ class LabelEntry:
     def pack_forget(self):
         self.label.pack_forget()
         self.entry.pack_forget()
+
+    def get(self):
+        return float(self.entry.get())
 
 def change_label_text(label_entry:LabelEntry,text:str):
     label_entry.label.configure(text="Длина(ось " + text + "), мм")
@@ -115,9 +117,11 @@ class RectangleWindow:
             self.axis = tk.StringVar()
             self.axis.set("X")
             tk.Radiobutton(self.root, variable=self.axis, value="X", text="Ось X", anchor=tk.E,
-                           command=lambda: change_label_text(self.length,"X")).pack()
+                           command=lambda: change_label_text(self.length,"X"),indicatoron=0,
+                           activebackground="#555555",activeforeground='#ffffff').pack()
             tk.Radiobutton(self.root, variable=self.axis, value="Y", text="Ось Y", anchor=tk.N,
-                           command=lambda: change_label_text(self.length,"Y")).pack()
+                           command=lambda: change_label_text(self.length,"Y"),indicatoron=0,
+                           activebackground="#555555",activeforeground='#ffffff').pack()
         self.root.iconbitmap("C:\\Users\\Frezer\\Desktop\\python_scripts\\rect_new\\rectangle.ico")
         self.root.title("Rectangle")
         self.save_path = tk.StringVar(value="")
@@ -125,8 +129,8 @@ class RectangleWindow:
         self.labels = LabelEntryBlock()
         self.thickness = LabelEntry.from_labels_text(self, "Толщина материала(мм)", "6", "thickness",self.labels)
         self.length = LabelEntry.from_labels_text(self, "Длина(ось Х), мм", "1050", "length",self.labels)
-        self.width = LabelEntry.from_labels_text(self, "Ширина(ось Y), мм", "730", "width",self.labels)
-        self.freza = LabelEntry.from_labels_text(self, "Диаметр инструмента, мм", "3.175", "freza",self.labels)
+        self.width = LabelEntry.from_labels_text(self, "Ширина(ось Y), мм", "100", "width",self.labels)
+        self.freza = LabelEntry.from_labels_text(self, "Диаметр инструмента, мм", "4", "freza",self.labels)
         self.x_feed = LabelEntry.from_labels_text(self, "Подача линейная, мм/сек", "60", "x_feed",self.labels)
         self.z_feed = LabelEntry.from_labels_text(self, "Подача врезания, мм/сек", "30", "z_feed",self.labels)
         self.zero_p = LabelEntry.from_labels_text(self, "Отступ от нуля(х и у), мм", "2", "zero_p",self.labels)
@@ -261,7 +265,7 @@ class LineWindow(RectangleWindow):
         self.length.entry.insert(0, "1000")
         self.freza.entry.delete(0, tk.END)
         self.freza.entry.insert(0, "4")
-        self.freza.entry.pack_configure()
+
 
     def calculate(self):
         global SAVED, SAVE_BUTTON_EXISTS
@@ -332,11 +336,14 @@ class ManyLinesWindow(RectangleWindow):
         self.back_button_object.pack()
         self.labels["length"].label.configure(text="Длина полосы")
         self.labels["width"].label.configure(text="Ширина полосы")
-        self.number = LabelEntry.from_labels_text(self,"Сколько полосок?","2","number",self.labels)
-        widgets = []
+        self.number = LabelEntry.from_labels_text(self,"Сколько полосок?","10","number",self.labels)
         for widget in self.root.slaves():
             widget.pack_forget()
-            widgets.append(widget)
+        self.cut_without_lifting = tk.BooleanVar()
+        self.cut_without_lifting.set(False)
+        self.lift_button = tk.Checkbutton(self.root,text="Резка без подъёма", variable=self.cut_without_lifting,
+                                          onvalue = True, offvalue = False)
+        self.lift_button.pack()
         self.labels.pack()
         self.text.pack()
         self.labels["path"].pack_forget()
@@ -344,6 +351,67 @@ class ManyLinesWindow(RectangleWindow):
         self.path_button.pack()
         self.button1.pack()
 
+    def calculate(self):
+        global SAVED, SAVE_BUTTON_EXISTS
+        labels = self.labels
+        text_field = self.text
+        root_window = self.root
+        self.saved_text.pack_forget()
+        SAVED = False
+        result = []
+        start = "IN;PA;ZZ1;SP1;SF64;"
+        end = "SP0;"
+        zero_p = float(self.zero_p.entry.get())
+        first_coord = output_convertation(float(self.zero_p.entry.get())) \
+                      + "," + output_convertation(float(self.zero_p.entry.get()))
+        safe_height = output_convertation(labels["safety_height"].entry.get(), sign=-1) + ";"
+        material_thickness = output_convertation(labels["thickness"].entry.get()) + ";"
+        length = float(self.length.entry.get())
+        start_point = Point(0,0)
+        points = []
+        for i in range(int(self.number.entry.get())):
+            points.append(Point(length*(i%2),(self.width.get() + self.freza.get())*i))
+            points.append(Point(length*((i+1)%2),(self.width.get() + self.freza.get())*i))
+        for point in points:
+            print(point)
+        vectors = []
+        for i in range(0,len(points),2):
+            vectors.append(Vector(points[i],points[i+1]))
+        for vector in vectors:
+            if not self.cut_without_lifting.get():
+                result.append("SF30;\n")
+                result.append("PU" + output_convertation(vector.start.x)
+                              + "," + output_convertation(vector.start.y) + ","
+                              + output_convertation(self.safety_height.get()) + ";\n")
+                result.append("SF64;\n")
+            result.append("PD" + output_convertation(vector.start.x)
+                          + "," + output_convertation(vector.start.y) + ","
+                          + output_convertation(labels["thickness"].entry.get()) + ";\n")
+            result.append("PD" + output_convertation(vector.end.x)
+                          + "," + output_convertation(vector.end.y) + ","
+                          + output_convertation(labels["thickness"].entry.get()) + ";\n")
+            if not self.cut_without_lifting.get():
+                result.append("SF30;\n")
+                result.append("PU" + output_convertation(vector.end.x)
+                              + "," + output_convertation(vector.end.y) + ","
+                              + output_convertation(self.safety_height.get()) + ";\n")
+
+            if DEBUG:
+                print(vector.angle, end="\n")
+        result.append("SF64;")
+        result.append("PU" + first_coord + "," + safe_height)
+        result.append("SF64;")
+        result.append("PU" + "0,0," + safe_height)
+        result.append(end)
+        text_field.txt.delete(1.0, tk.END)
+        text_field.txt.insert(1.0, "".join(result))
+
+        if not SAVE_BUTTON_EXISTS:
+            new_button = tk.Button(root_window, width=30, text="Save", command=self.save_button)
+            new_button.pack()
+            plotter_button = tk.Button(root_window, width=30, command=self.show_plot, text="Show plot")
+            plotter_button.pack()
+            SAVE_BUTTON_EXISTS = True
 
 
 
