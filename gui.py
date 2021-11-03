@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from geometry import *
 from typing import Dict
-
+from os import getcwd
+from configparser import ConfigParser as parser
 
 DEBUG = False
 STEP = 1
@@ -13,7 +14,9 @@ SAVE_BUTTON_EXISTS = False
 SAVED = False
 
 SAVED_TEXT_SHOWN = False
-default_path = "\\\\SHIELD-35\\second\\"
+config = parser()
+config.read('settings.ini')
+default_path = config['paths']['save_path']
 
 
 
@@ -122,7 +125,7 @@ class RectangleWindow:
             tk.Radiobutton(self.root, variable=self.axis, value="Y", text="Ось Y", anchor=tk.N,
                            command=lambda: change_label_text(self.length,"Y"),indicatoron=0,
                            activebackground="#555555",activeforeground='#ffffff').pack()
-        self.root.iconbitmap("C:\\Users\\Frezer\\Desktop\\python_scripts\\rect_new\\rectangle.ico")
+        self.root.iconbitmap(getcwd() + "\\rectangle.ico")
         self.root.title("Rectangle")
         self.save_path = tk.StringVar(value="")
         self.saved_text = tk.Label(self.root, textvariable=self.save_path)
@@ -137,8 +140,8 @@ class RectangleWindow:
         self.safety_height = LabelEntry.from_labels_text(self, "Высота безопасности, мм", "40", "safety_height",self.labels)
         self.labels.pack()
         self.text = TextField(self.root)
-        self.text.pack(fill="both", expand=True)
-        self.text.config(width=500, height=500)
+        self.text.pack(expand=True)
+        self.text.config(width=400, height=150)
         self.path = LabelEntry.from_labels_text(self, "Папка сохранения", default_path, "path",self.labels, width=100)
         self.path.pack()
         self.path_button = tk.Button(self.root, width=30, text="Browse", command=self.path_taker_button)
@@ -148,6 +151,8 @@ class RectangleWindow:
 
 
     def back_button(self):
+        global SAVE_BUTTON_EXISTS
+        SAVE_BUTTON_EXISTS = False
         self.root.destroy()
         del self
         ChoiceWindow()
@@ -256,7 +261,7 @@ class LineWindow(RectangleWindow):
 
     def __init__(self):
         super(LineWindow, self).__init__()
-        self.root.iconbitmap("C:\\Users\\Frezer\\Desktop\\python_scripts\\rect_new\\line.ico")
+        self.root.iconbitmap(getcwd() + "\\line.ico")
         self.root.title("Line")
         self.width.pack_forget()
         self.zero_p.entry.delete(0,tk.END)
@@ -272,7 +277,7 @@ class LineWindow(RectangleWindow):
         labels = self.labels
         text_field = self.text
         root_window = self.root
-        self.saved_text.pack_forget()
+        #self.saved_text.pack_forget()
         SAVED = False
         result = []
         start = "IN;PA;ZZ1;SP1;SF64;"
@@ -332,13 +337,13 @@ class ManyLinesWindow(RectangleWindow):
 
     def __init__(self):
         super(ManyLinesWindow, self).__init__()
-        self.labels.pack_forget()
-        self.back_button_object.pack()
+
         self.labels["length"].label.configure(text="Длина полосы")
         self.labels["width"].label.configure(text="Ширина полосы")
-        self.number = LabelEntry.from_labels_text(self,"Сколько полосок?","10","number",self.labels)
+        self.number = LabelEntry.from_labels_text(self,"Сколько полосок?","2","number",self.labels)
         for widget in self.root.slaves():
             widget.pack_forget()
+        self.back_button_object.pack()
         self.cut_without_lifting = tk.BooleanVar()
         self.cut_without_lifting.set(False)
         self.lift_button = tk.Checkbutton(self.root,text="Резка без подъёма", variable=self.cut_without_lifting,
@@ -353,6 +358,7 @@ class ManyLinesWindow(RectangleWindow):
 
     def calculate(self):
         global SAVED, SAVE_BUTTON_EXISTS
+
         labels = self.labels
         text_field = self.text
         root_window = self.root
@@ -360,8 +366,10 @@ class ManyLinesWindow(RectangleWindow):
         SAVED = False
         result = []
         start = "IN;PA;ZZ1;SP1;SF64;"
+        result.append(start)
         end = "SP0;"
         zero_p = float(self.zero_p.entry.get())
+
         first_coord = output_convertation(float(self.zero_p.entry.get())) \
                       + "," + output_convertation(float(self.zero_p.entry.get()))
         safe_height = output_convertation(labels["safety_height"].entry.get(), sign=-1) + ";"
@@ -413,6 +421,21 @@ class ManyLinesWindow(RectangleWindow):
             plotter_button.pack()
             SAVE_BUTTON_EXISTS = True
 
+    def save_button(self):
+        global SAVED, SAVED_TEXT_SHOWN
+        labels = self.labels
+        self.saved_text.pack_forget()
+        filename = "Stripes" + self.axis.get() + labels["length"].entry.get() + "mm" \
+                   + "d" + self.freza.entry.get() + "(" + self.zero_p.entry.get() \
+                   + ";" + self.zero_p.entry.get() + ").plt"
+        result = self.text.txt.get(1.0, tk.END)
+        default_file = labels["path"].entry.get() + filename
+        file = open(default_file, "w")
+        file.write(result)
+        file.close()
+        self.save_path.set("Saved to " + default_file)
+        self.saved_text.pack()
+        SAVED = True
 
 
 class ChoiceWindow:
